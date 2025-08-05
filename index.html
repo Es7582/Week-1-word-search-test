@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wellness Word Search</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    td {
+      width: 30px;
+      height: 30px;
+      text-align: center;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: sans-serif;
+      user-select: none;
+    }
+    .selected {
+      background-color: lightblue;
+    }
+    .found {
+      background-color: lightgreen;
+      text-decoration: line-through;
+    }
+    #word-list li.found-word {
+      color: gray;
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+  <h1>Wellness Word Search</h1>
+  <table id="grid"></table>
+  <h2>Words to Find</h2>
+  <ul id="word-list">
+    <li>WELLBEING</li>
+    <li>RESILIENCE</li>
+    <li>TRUST</li>
+    <li>REST</li>
+    <li>STRENGTHS</li>
+    <li>FEEDBACK</li>
+    <li>ENGAGEMENT</li>
+    <li>CUSTOMER</li>
+    <li>POSITIVE</li>
+    <li>REPAIR</li>
+    <li>MAINTENANCE</li>
+    <li>ANCHOR</li>
+    <li>DOWNTIME</li>
+    <li>BOUNDARIES</li>
+    <li>SAFETY</li>
+    <li>ENERGY</li>
+  </ul>
+
+  <script>
+    const gridSize = 15;
+    const words = [
+      'WELLBEING','RESILIENCE','TRUST','REST','STRENGTHS','FEEDBACK',
+      'ENGAGEMENT','CUSTOMER','POSITIVE','REPAIR','MAINTENANCE',
+      'ANCHOR','DOWNTIME','BOUNDARIES','SAFETY','ENERGY'
+    ];
+
+    let gridData = Array.from({ length: gridSize }, () =>
+      Array.from({ length: gridSize }, () => '')
+    );
+
+    function getRandomDirection() {
+      const directions = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 1, dy: 1 },
+        { dx: -1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: -1 },
+        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+      ];
+      return directions[Math.floor(Math.random() * directions.length)];
+    }
+
+    function canPlaceWord(word, x, y, dir) {
+      for (let i = 0; i < word.length; i++) {
+        const newX = x + dir.dx * i;
+        const newY = y + dir.dy * i;
+        if (
+          newX < 0 || newX >= gridSize ||
+          newY < 0 || newY >= gridSize ||
+          (gridData[newY][newX] !== '' && gridData[newY][newX] !== word[i])
+        ) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function placeWord(word) {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const dir = getRandomDirection();
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+        if (canPlaceWord(word, x, y, dir)) {
+          for (let i = 0; i < word.length; i++) {
+            gridData[y + dir.dy * i][x + dir.dx * i] = word[i];
+          }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    words.forEach(word => placeWord(word));
+
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        if (gridData[y][x] === '') {
+          gridData[y][x] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+        }
+      }
+    }
+
+    const grid = document.getElementById('grid');
+    const wordList = document.getElementById('word-list');
+    let selected = [];
+
+    grid.innerHTML = '';
+    gridData.forEach((row, y) => {
+      const tr = document.createElement('tr');
+      row.forEach((letter, x) => {
+        const td = document.createElement('td');
+        td.textContent = letter;
+        td.dataset.x = x;
+        td.dataset.y = y;
+        tr.appendChild(td);
+      });
+      grid.appendChild(tr);
+    });
+
+    function isStraightLine(cells) {
+      if (cells.length < 2) return false;
+      const dx = cells[1].x - cells[0].x;
+      const dy = cells[1].y - cells[0].y;
+      for (let i = 1; i < cells.length; i++) {
+        const expectedX = parseInt(cells[0].x) + dx * i;
+        const expectedY = parseInt(cells[0].y) + dy * i;
+        if (parseInt(cells[i].x) !== expectedX || parseInt(cells[i].y) !== expectedY) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    grid.addEventListener('click', function(e) {
+      if (e.target.tagName === 'TD') {
+        e.target.classList.toggle('selected');
+        const x = parseInt(e.target.dataset.x);
+        const y = parseInt(e.target.dataset.y);
+        const index = selected.findIndex(cell => cell.x === x && cell.y === y);
+        if (index > -1) {
+          selected.splice(index, 1);
+        } else {
+          selected.push({x, y, el: e.target});
+        }
+
+        if (selected.length > 1 && isStraightLine(selected)) {
+          const word = selected.map(cell => cell.el.textContent).join('').toUpperCase();
+          const reverse = selected.map(cell => cell.el.textContent).reverse().join('').toUpperCase();
+          const matchedWord = words.find(w => w === word || w === reverse);
+
+          if (matchedWord) {
+            selected.forEach(cell => {
+              cell.el.classList.add('found');
+              cell.el.classList.remove('selected');
+            });
+            highlightWordInList(matchedWord);
+            selected = [];
+          }
+        } else if (selected.length > 1 && !isStraightLine(selected)) {
+          selected.forEach(cell => cell.el.classList.remove('selected'));
+          selected = [];
+        }
+      }
+    });
+
+    function highlightWordInList(word) {
+      const items = wordList.querySelectorAll('li');
+      items.forEach(item => {
+        if (item.textContent.trim().replace(/\s+/g, '').toUpperCase() === word.replace(/\s+/g, '').toUpperCase()) {
+          item.classList.add('found-word');
+        }
+      });
+    }
+  </script>
+</body>
+</html>
